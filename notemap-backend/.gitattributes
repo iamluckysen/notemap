@@ -1,0 +1,9 @@
+/gradlew text eol=lf
+*.bat text eol=crlf
+*.jar binary
+
+.env
+application-local.properties
+*.log
+target/
+.idea/

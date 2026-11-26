@@ -1,0 +1,17 @@
+# Secrets & Environment variables
+.env
+*.env
+
+# Java / Gradle / IntelliJ
+.gradle/
+build/
+target/
+.idea/
+*.iml
+out/
+
+# React / Node / Vite
+node_modules/
+dist/
+.vite/
+.DS_Store
