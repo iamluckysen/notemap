@@ -4,6 +4,8 @@ import {
   Code2,
   Download,
   FileUp,
+  GitFork,
+  LayoutGrid,
   Leaf,
   Loader2,
   LockKeyhole,
@@ -19,6 +21,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
+import type { DiagramType } from "../../api/notesApi";
 import { cn, formatCount } from "../../lib/utils";
 
 const MAX_CHARS = 12_000;
@@ -95,7 +98,7 @@ Performance tools include memoising components with React.memo, stabilising call
 
 interface NewNoteViewProps {
   generating: boolean;
-  onGenerate: (text: string) => Promise<void>;
+  onGenerate: (text: string, diagramType: DiagramType) => Promise<void>;
 }
 
 function FeaturePill({
@@ -115,6 +118,7 @@ function FeaturePill({
 
 export function NewNoteView({ generating, onGenerate }: NewNoteViewProps) {
   const [activeTab, setActiveTab] = useState<InputTab>("text");
+  const [diagramType, setDiagramType] = useState<DiagramType>("visual");
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const count = text.length;
@@ -138,14 +142,14 @@ export function NewNoteView({ generating, onGenerate }: NewNoteViewProps) {
     if (!canSubmit) {
       return;
     }
-    void onGenerate(text.trim());
+    void onGenerate(text.trim(), diagramType);
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
       event.preventDefault();
       if (canSubmit) {
-        void onGenerate(text.trim());
+        void onGenerate(text.trim(), diagramType);
       }
     }
   };
@@ -274,28 +278,68 @@ export function NewNoteView({ generating, onGenerate }: NewNoteViewProps) {
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 rounded-b-xl bg-gradient-to-t from-paper-50/80 to-transparent" />
                   </div>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-400">
-                      Try a sample
-                    </span>
-                    {SAMPLE_TOPICS.map((sample) => {
-                      const Icon = sample.icon;
-                      return (
-                        <button
-                          key={sample.label}
-                          type="button"
-                          onClick={() => handleSample(sample)}
-                          disabled={generating}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-paper-200 bg-white px-2.5 py-1 text-[11px] font-medium text-ink-600 shadow-sm transition hover:border-accent-200 hover:bg-accent-50/60 hover:text-accent-700 disabled:opacity-50"
-                        >
-                          <Icon
-                            aria-hidden="true"
-                            className="size-3 text-accent-500"
-                          />
-                          {sample.label}
-                        </button>
-                      );
-                    })}
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-400">
+                        Try a sample
+                      </span>
+                      {SAMPLE_TOPICS.map((sample) => {
+                        const Icon = sample.icon;
+                        return (
+                          <button
+                            key={sample.label}
+                            type="button"
+                            onClick={() => handleSample(sample)}
+                            disabled={generating}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-paper-200 bg-white px-2.5 py-1 text-[11px] font-medium text-ink-600 shadow-sm transition hover:border-accent-200 hover:bg-accent-50/60 hover:text-accent-700 disabled:opacity-50"
+                          >
+                            <Icon
+                              aria-hidden="true"
+                              className="size-3 text-accent-500"
+                            />
+                            {sample.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div
+                      role="group"
+                      aria-label="Diagram style"
+                      className="inline-flex items-center gap-1 rounded-xl border border-paper-200 bg-paper-50 p-1"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setDiagramType("visual")}
+                        disabled={generating}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition disabled:opacity-50",
+                          diagramType === "visual"
+                            ? "bg-white text-accent-700 shadow-sm ring-1 ring-paper-200"
+                            : "text-ink-500 hover:text-ink-800",
+                        )}
+                      >
+                        <LayoutGrid
+                          aria-hidden="true"
+                          className="size-3.5"
+                        />
+                        Visual Board
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDiagramType("flowchart")}
+                        disabled={generating}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition disabled:opacity-50",
+                          diagramType === "flowchart"
+                            ? "bg-white text-accent-700 shadow-sm ring-1 ring-paper-200"
+                            : "text-ink-500 hover:text-ink-800",
+                        )}
+                      >
+                        <GitFork aria-hidden="true" className="size-3.5" />
+                        Flowchart
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -344,7 +388,9 @@ export function NewNoteView({ generating, onGenerate }: NewNoteViewProps) {
                       ) : (
                         <>
                           <Sparkles aria-hidden="true" className="size-4" />
-                          Generate Visual Note
+                          {diagramType === "flowchart"
+                            ? "Generate Flowchart"
+                            : "Generate Visual Note"}
                           <ArrowRight
                             aria-hidden="true"
                             className="size-3.5 transition-transform group-hover:translate-x-0.5"
@@ -391,9 +437,10 @@ export function NewNoteView({ generating, onGenerate }: NewNoteViewProps) {
             className="mt-0.5 size-3.5 shrink-0 text-accent-500"
           />
           <p>
-            NoteMap generates a Mermaid diagram from your material, then
-            converts it into an editable Excalidraw canvas. Nothing is shared
-            publicly — your notes stay tied to this anonymous browser identity.
+            NoteMap generates a visual board or Mermaid diagram from your
+            material, then converts it into an editable Excalidraw canvas.
+            Nothing is shared publicly — your notes stay tied to this anonymous
+            browser identity.
           </p>
         </div>
       </div>

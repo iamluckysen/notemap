@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { ApiError, notesApi } from "./api/notesApi";
+import { ApiError, type DiagramType, notesApi } from "./api/notesApi";
 import { MobileTopBar } from "./components/layout/MobileTopBar";
 import { Sidebar } from "./components/layout/Sidebar";
 import { NewNoteView } from "./components/new-note/NewNoteView";
@@ -136,10 +136,10 @@ export default function App() {
   );
 
   const handleGenerate = useCallback(
-    async (text: string) => {
+    async (text: string, diagramType: DiagramType = "visual") => {
       setGenerating(true);
       try {
-        const note = await notesApi.generateFromText(text);
+        const note = await notesApi.generateFromText(text, diagramType);
         recordNoteGenerationExposure();
         const historyItem: NoteHistoryItem = {
           id: note.id,
@@ -157,7 +157,9 @@ export default function App() {
         setView("note");
         setNoteLoading(false);
         toast.success(
-          "Visual note ready",
+          diagramType === "flowchart"
+            ? "Flowchart note ready"
+            : "Visual note ready",
           "Your summary and colorful diagram are ready to edit.",
         );
         void loadHistory({ silent: true });

@@ -6,6 +6,8 @@ import type {
 } from "../types/note";
 import { getOrCreateUserId } from "../lib/userId";
 
+export type DiagramType = "visual" | "flowchart";
+
 const DEFAULT_API_BASE_URL = "http://localhost:8080/api/notes";
 const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL
@@ -116,10 +118,13 @@ async function request<T>(
 }
 
 export const notesApi = {
-  generateFromText(text: string): Promise<Note> {
+  generateFromText(
+    text: string,
+    diagramType: DiagramType = "visual",
+  ): Promise<Note> {
     return request<Note>("/generate/text", {
       method: "POST",
-      body: { text },
+      body: { text, diagramType },
       timeoutMs: 180_000,
     });
   },
