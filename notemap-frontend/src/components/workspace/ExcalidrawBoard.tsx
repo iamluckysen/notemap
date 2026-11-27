@@ -29,6 +29,10 @@ import {
 } from "react";
 import { mermaidToScene, parseSavedScene } from "../../lib/excalidrawScene";
 import { cn, getErrorMessage } from "../../lib/utils";
+import {
+  buildExcalidrawVisualNote,
+  type VisualDiagramSpec,
+} from "../../lib/visualNoteToExcalidraw";
 import type { Note } from "../../types/note";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { useToast } from "../ui/ToastProvider";
@@ -53,15 +57,18 @@ interface ExcalidrawBoardProps {
 }
 
 type BoardStatus = "loading" | "ready" | "error";
-type SceneSource = "saved" | "mermaid" | null;
+type SceneSource = "saved" | "mermaid" | "visual" | null;
 
 function fitScene(api: ExcalidrawImperativeAPI) {
   window.requestAnimationFrame(() => {
     window.requestAnimationFrame(() => {
-      api.scrollToContent(api.getSceneElements(), {
-        fitToContent: true,
-        animate: false,
-      });
+      const elements = api.getSceneElements();
+      if (elements.length > 0) {
+        api.scrollToContent(elements, {
+          fitToContent: true,
+          animate: false,
+        });
+      }
     });
   });
 }
@@ -109,21 +116,59 @@ export const ExcalidrawBoard = forwardRef<
       const currentNote = noteRef.current;
 
       try {
-        let scene =
-          mode === "auto" ? parseSavedScene(currentNote.excalidrawJson) : null;
+        let scene:
+          | {
+              elements: ExcalidrawElement[];
+              files: BinaryFiles | null;
+            }
+          | null = null;
 
-        if (scene) {
-          setSource("saved");
-        } else {
-          if (!currentNote.mermaidCode.trim()) {
-            throw new Error(
-              "This note does not include diagram source yet. Try saving it again from the source note.",
-            );
+        // Only use saved Excalidraw JSON if it contains visible elements
+        if (mode === "auto") {
+          const savedScene = parseSavedScene(currentNote.excalidrawJson);
+          if (
+            savedScene &&
+            savedScene.elements.some((el) => !el.isDeleted)
+          ) {
+            scene = savedScene;
+            setSource("saved");
+          }
+        }
+
+        // Otherwise build from VisualDiagramSpec JSON or Mermaid fallback
+        if (!scene) {
+          const trimmedMermaid = currentNote.mermaidCode.trim();
+
+          if (trimmedMermaid.startsWith("{")) {
+            try {
+              const spec: VisualDiagramSpec = JSON.parse(trimmedMermaid);
+              scene = {
+                elements: buildExcalidrawVisualNote(spec),
+                files: null,
+              };
+              setSource("visual");
+            } catch {
+              // Falls through to Mermaid fallback below
+            }
           }
 
-          scene = await mermaidToScene(currentNote.mermaidCode);
-          setSource("mermaid");
+          if (!scene) {
+            if (!trimmedMermaid) {
+              throw new Error(
+                "This note does not include diagram source yet. Try saving it again from the source note.",
+              );
+            }
+
+            scene = await mermaidToScene(currentNote.mermaidCode);
+            setSource("mermaid");
+          }
         }
+
+        // Wait for Excalidraw's internal mount initialization to complete
+        // so it does not overwrite synchronous visual scenes with an empty canvas
+        await new Promise<void>((resolve) => {
+          window.setTimeout(resolve, 120);
+        });
 
         if (token !== loadTokenRef.current) {
           return false;
