@@ -28,7 +28,6 @@ import {
 import type { Note, UpdateNotePayload } from "../../types/note";
 import { SourceBadge } from "../ui/SourceBadge";
 import { useToast } from "../ui/ToastProvider";
-import { buildExcalidrawVisualNote } from "../../lib/visualNoteToExcalidraw";
 import {
   ExcalidrawBoard,
   type ExcalidrawBoardHandle,
@@ -117,9 +116,8 @@ export function NoteWorkspace({
   const [summaryCollapsed, setSummaryCollapsed] = useState(false);
   const [summaryWidth, setSummaryWidth] = useState(DEFAULT_SUMMARY_WIDTH);
   const [isDragging, setIsDragging] = useState(false);
-  const [diagramSource, setDiagramSource] = useState<"visual" | "mermaid" | "none">(
-    "none",
-  );
+  
+ 
 
   const isDirty =
     title !== note.title || summary !== note.summary || sceneDirty;
@@ -154,17 +152,6 @@ export function NoteWorkspace({
     };
   }, [isDragging]);
 
-  // Detect diagram source format: if mermaidCode starts with '{', it's a VisualDiagramSpec
-  useEffect(() => {
-    const trimmed = note.mermaidCode.trim();
-    if (trimmed.startsWith("{")) {
-      setDiagramSource("visual");
-    } else if (trimmed) {
-      setDiagramSource("mermaid");
-    } else {
-      setDiagramSource("none");
-    }
-  }, [note.mermaidCode]);
 
   const handleSave = useCallback(async () => {
     if (saving) {
