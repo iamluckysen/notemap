@@ -13,6 +13,7 @@ import { NewNoteView } from "./components/new-note/NewNoteView";
 import { ConfirmDialog } from "./components/ui/ConfirmDialog";
 import { useToast } from "./components/ui/ToastProvider";
 import { WorkspaceSkeleton } from "./components/workspace/WorkspaceSkeleton";
+import { recordNoteGenerationExposure } from "./lib/flagsmith";
 import { getErrorMessage } from "./lib/utils";
 import { getOrCreateUserId } from "./lib/userId";
 import type {
@@ -139,6 +140,7 @@ export default function App() {
       setGenerating(true);
       try {
         const note = await notesApi.generateFromText(text);
+        recordNoteGenerationExposure();
         const historyItem: NoteHistoryItem = {
           id: note.id,
           sourceType: note.sourceType,

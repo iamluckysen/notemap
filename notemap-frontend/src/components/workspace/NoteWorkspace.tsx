@@ -17,6 +17,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { trackNoteExported } from "../../lib/flagsmith";
 import { exportNoteToPdf } from "../../lib/pdf";
 import {
   cn,
@@ -220,6 +221,7 @@ export function NoteWorkspace({
         files: exportData.files,
       });
 
+      trackNoteExported();
       toast.success("PDF exported", `Saved ${filename} to your downloads.`);
     } catch (error) {
       toast.error("Couldn't export PDF", getErrorMessage(error));

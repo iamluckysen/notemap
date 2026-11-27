@@ -2,11 +2,11 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ToastProvider } from "./components/ui/ToastProvider";
-import { getOrCreateUserId } from "./lib/userId";
+import { initFlagsmith } from "./lib/flagsmith";
 import "./index.css";
 
-// Anonymous identity is created before the first API call on app load.
-getOrCreateUserId();
+// Anonymous identity and Flagsmith are initialised before the first API call.
+initFlagsmith();
 
 const container = document.getElementById("root");
 if (!container) {

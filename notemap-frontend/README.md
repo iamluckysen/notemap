@@ -15,14 +15,41 @@ This is the Vite + React + TypeScript frontend for the NoteMap backend.
   - Backend repository/process: `notemap-backend` (Spring Boot)
   - If you do not have it running, use the built-in mock API described below.
 
-### 2. Install dependencies
+### 2. Configure the backend environment
+
+The backend reads `notemap-backend/.env`, which is ignored by Git. Copy the example file and fill in your own values:
 
 ```bash
-cd notemap-frotnend
+cd ../notemap-backend
+cp .env.example .env
+```
+
+On Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Required variables:
+
+```text
+DB_URL
+DB_USERNAME
+DB_PASSWORD
+GROQ_API_KEY
+FLAGSMITH_ENVIRONMENT_KEY
+```
+
+Never commit the real `.env` file.
+
+### 3. Install dependencies
+
+```bash
+cd ../notemap-frontend
 npm install
 ```
 
-### 3. Start the frontend
+### 4. Start the frontend
 
 ```bash
 npm run dev
@@ -32,7 +59,7 @@ Open **http://localhost:5173**.
 
 > **Important:** open the app at `localhost`, not `127.0.0.1`. The included Spring Boot backend only allows the origin `http://localhost:5173` by default. If you use `127.0.0.1`, the browser blocks API calls with a CORS error.
 
-### 4. Optional: run without the real backend
+### 5. Optional: run without the real backend
 
 A small in-memory mock API is included. It implements the same five endpoints and generates sample Mermaid diagrams.
 
@@ -70,13 +97,35 @@ The API client is in `src/api/notesApi.ts` and defaults to:
 http://localhost:8080/api/notes
 ```
 
-To point the frontend at a different API, create a `.env.local` file:
+Create a `.env` file in `notemap-frontend/` (ignored by Git; a template is available at `.env.example`):
 
 ```bash
 VITE_API_BASE_URL=https://your-api.example.com/api/notes
+VITE_FLAGSMITH_CLIENT_KEY=your_client_side_key
 ```
 
+Use these values in code through `import.meta.env`:
+
+```ts
+const flagsmithKey = import.meta.env.VITE_FLAGSMITH_CLIENT_KEY;
+```
+
+Only variables prefixed with `VITE_` are exposed to the browser, so never put server secrets in a `VITE_` variable. Restart `npm run dev` after changing `.env`.
+
 The client sends an anonymous `X-User-Id` header on **every** request. The ID is created with `crypto.randomUUID()` and stored in `localStorage` under `notemap_user_id`.
+
+### Flagsmith experimentation
+
+`src/lib/flagsmith.ts` initialises Flagsmith once at startup with `enableEvents: true`, then identifies the user with the same anonymous ID sent as `X-User-Id`.
+
+- After a note is generated, the app reads the `note_generation_style` flag and records the experiment exposure.
+- A successful PDF export tracks the `note_exported` conversion event.
+
+Set the client-side key in `notemap-frontend/.env`:
+
+```bash
+VITE_FLAGSMITH_CLIENT_KEY=your_client_side_key
+```
 
 ### Endpoints used
 

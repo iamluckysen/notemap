@@ -66,7 +66,7 @@ public class NoteService {
     }
 
     private NoteResponse generateAndSaveNote(String userId, SourceType sourceType, String cleanText) {
-        GroqAiService.GeneratedNoteContent aiContent = groqAiService.generateStructuredNote(cleanText);
+        GroqAiService.GeneratedNoteContent aiContent = groqAiService.generateStructuredNote(cleanText, userId);
 
         Note note = Note.builder()
                 .userId(userId)
