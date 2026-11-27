@@ -26,7 +26,7 @@ public class NoteController {
             @RequestHeader("X-User-Id") String userId,
             @Valid @RequestBody TextNoteRequest request
     ) {
-        NoteResponse response = noteService.createFromText(userId, request.text());
+        NoteResponse response = noteService.createFromText(userId, request.text(),request.diagramType());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

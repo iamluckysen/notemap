@@ -4,5 +4,6 @@ import jakarta.validation.constraints.NotBlank;
 
 public record YoutubeNoteRequest (
     @NotBlank(message = "YouTube URL cannot be empty")
-    String youtubeUrl
+    String youtubeUrl,
+    String diagramType
 ){}

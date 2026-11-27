@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+
 @Service
 public class NoteService {
     private final NoteRepository noteRepository;
@@ -23,11 +24,18 @@ public class NoteService {
         this.contentExtractorService = contentExtractorService;
         this.groqAiService = groqAiService;
     }
+    @Transactional
+    public NoteResponse createFromText(String userId, String text) {
+        return createFromText(userId, text, "visual");
+    }
 
     @Transactional
-    public NoteResponse createFromText(String userId, String rawText) {
-        String cleanText = contentExtractorService.extractFromText(rawText);
-        return generateAndSaveNote(userId, SourceType.TEXT, cleanText);
+    public NoteResponse createFromText(String userId, String text, String diagramType) {
+        if (text == null || text.isBlank()) {
+            throw new IllegalArgumentException("Study text must not be blank");
+        }
+        String normalizedType = normalizeDiagramType(diagramType);
+        return generateAndSaveNote(userId, SourceType.TEXT, text.trim(), normalizedType);
     }
 
     @Transactional(readOnly = true)
@@ -65,8 +73,8 @@ public class NoteService {
         noteRepository.delete(note);
     }
 
-    private NoteResponse generateAndSaveNote(String userId, SourceType sourceType, String cleanText) {
-        GroqAiService.GeneratedNoteContent aiContent = groqAiService.generateStructuredNote(cleanText, userId);
+    private NoteResponse generateAndSaveNote(String userId, SourceType sourceType, String cleanText, String diagramType) {
+        GroqAiService.GeneratedNoteContent aiContent = groqAiService.generateStructuredNote(cleanText, userId, diagramType);
 
         Note note = Note.builder()
                 .userId(userId)
@@ -74,6 +82,7 @@ public class NoteService {
                 .title(aiContent.title())
                 .summary(aiContent.summary())
                 .mermaidCode(aiContent.mermaidCode())
+                .excalidrawJson("{\"elements\":[]}")
                 .build();
 
         Note savedNote = noteRepository.save(note);
@@ -84,4 +93,13 @@ public class NoteService {
         return noteRepository.findByIdAndUserId(noteId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Note not found with id: " + noteId));
     }
+
+    private String normalizeDiagramType(String diagramType) {
+        if (diagramType != null && "flowchart".equalsIgnoreCase(diagramType.trim())) {
+            return "flowchart";
+        }
+        return "visual";
+    }
+
+
 }
