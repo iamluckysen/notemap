@@ -131,7 +131,7 @@ VITE_FLAGSMITH_CLIENT_KEY=your_client_side_key
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `POST` | `/generate/text` | Generate a note from pasted text. Body: `{ "text": "..." }`. |
+| `POST` | `/generate/text` | Generate a note from pasted text. Body: `{ "text": "...", "diagramType": "visual" \| "flowchart" }`. |
 | `GET` | `/history` | List the current user's notes. |
 | `GET` | `/{id}` | Load a single note. |
 | `PUT` | `/{id}` | Save title, summary, Mermaid source, and Excalidraw scene. |
@@ -166,9 +166,9 @@ If you serve the frontend from another port or host, update the backend CORS set
 
 1. **Create a note**
    - Choose **Paste Text**.
-   - Paste a lecture transcript, article, or textbook passage (up to **12,000 characters**).
-   - Or click one of the sample chips: *TCP 3-Way Handshake*, *Photosynthesis*, *React Rendering*.
-   - Click **Generate Visual Note** (or press `Ctrl+Enter`).
+   - Paste a lecture transcript, article, or textbook passage (up to **12,000 characters**), or click a sample chip (*TCP 3-Way Handshake*, *Photosynthesis*, *React Rendering*).
+   - Choose **Visual Board** (structured concept cards + sticky notes) or **Flowchart** (Mermaid `flowchart TD` diagram).
+   - Click **Generate Visual Note** / **Generate Flowchart** (or press `Ctrl+Enter`).
 
 2. **Read and edit the summary**
    - The left/top pane shows the AI summary rendered as Markdown.
@@ -200,29 +200,32 @@ If you serve the frontend from another port or host, update the backend CORS set
 ## Project structure
 
 ```text
-notemap-frotnend/
+notemap-frontend/
 ├─ public/
 │  └─ favicon.svg
 ├─ scripts/
-│  └─ mock-backend.mjs        # Optional in-memory API for local testing
+│  └─ mock-backend.mjs             # Optional in-memory API for local testing
 ├─ src/
 │  ├─ api/
-│  │  └─ notesApi.ts          # All REST calls, X-User-Id, error handling
+│  │  └─ notesApi.ts               # REST calls, diagramType, X-User-Id, error handling
 │  ├─ components/
-│  │  ├─ new-note/            # Paste-text form, tabs, samples
-│  │  ├─ ui/                  # Toasts, dialogs, badges, brand mark
-│  │  └─ workspace/           # Note workspace, summary pane, Excalidraw board
+│  │  ├─ layout/                   # Sidebar, mobile top bar
+│  │  ├─ new-note/                 # Paste-text form, Visual/Flowchart toggle, samples
+│  │  ├─ ui/                       # Toasts, dialogs, badges, brand mark
+│  │  └─ workspace/                # Note workspace, summary pane, Excalidraw board
 │  ├─ hooks/
 │  ├─ lib/
-│  │  ├─ excalidrawScene.ts   # Mermaid → Excalidraw + pastel palette
-│  │  ├─ markdown.ts          # Markdown helpers
-│  │  ├─ pdf.ts               # PNG capture + jsPDF layout
-│  │  ├─ userId.ts            # Anonymous localStorage identity
-│  │  └─ utils.ts
+│  │  ├─ excalidrawScene.ts        # Mermaid → Excalidraw converter + palette
+│  │  ├─ flagsmith.ts              # Feature flag evaluation & event tracking
+│  │  ├─ markdown.ts               # Markdown helpers
+│  │  ├─ pdf.ts                    # PNG capture + jsPDF layout
+│  │  ├─ userId.ts                 # Anonymous localStorage identity
+│  │  ├─ utils.ts
+│  │  └─ visualNoteToExcalidraw.ts # Structured Visual Board → Excalidraw builder
 │  ├─ types/
-│  │  └─ note.ts              # API/domain types
-│  ├─ App.tsx                 # App state and data orchestration
-│  ├─ index.css               # Tailwind theme, Markdown, Excalidraw overrides
+│  │  └─ note.ts                   # API/domain types
+│  ├─ App.tsx                      # App state and data orchestration
+│  ├─ index.css                    # Tailwind theme, Markdown, Excalidraw overrides
 │  └─ main.tsx
 ├─ index.html
 ├─ vite.config.ts
