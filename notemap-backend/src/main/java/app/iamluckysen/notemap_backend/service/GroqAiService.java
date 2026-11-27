@@ -33,40 +33,60 @@
                 String mermaidCode
         ) {}
 
-        private static final String SYSTEM_PROMPT = """
-            You are an expert study assistant that converts raw learning material into structured visual notes.
-            Return ONLY a valid JSON object with exactly three string fields:
-            1. "title": A concise, descriptive title for the topic (max 80 characters).
-            2. "summary": A clear, well-structured summary of the key concepts in Markdown bullet points.
-            3. "mermaidCode": Valid Mermaid.js flowchart syntax starting with "flowchart TD".
-            
-            Strict rules for "mermaidCode":
-            - Use simple alphanumeric node IDs like A, B, C1, D2.
-            - Always wrap node labels in double quotes, e.g., A["Main Concept"] --> B["Sub Concept"].
-            - Never put double quotes or parentheses inside node label text.
-            - Keep the diagram clean with 6 to 12 nodes so it converts cleanly to Excalidraw.
-            - Do not include markdown code fences (```mermaid) inside the JSON string.
-            """;
 
+        private static final String BASE_SYSTEM_PROMPT = """
+        You are an expert visual note-taker that converts study material into structured Excalidraw visual boards.
+        Return ONLY a valid JSON object with exactly three fields:
+        1. "title": A concise, descriptive title for the topic (max 80 characters).
+        2. "summary": %s
+        3. "visualDiagram": A JSON object (NOT a stringified string) with this exact schema:
+           {
+             "layoutType": "mindmap" | "comparison" | "process" | "architecture",
+             "centerTitle": "Main Topic Title",
+             "cards": [
+               {
+                 "id": "c1",
+                 "heading": "Short Card Title",
+                 "body": "1-2 line key takeaway",
+                 "color": "blue" | "green" | "purple" | "orange" | "pink",
+                 "shape": "rectangle" | "diamond" | "ellipse"
+               }
+             ],
+             "connections": [
+               { "from": "c1", "to": "c2", "label": "short relationship" }
+             ],
+             "stickyNotes": [
+               { "title": "Key Tip", "text": "Important exam takeaway or formula" }
+             ]
+           }
 
+        Strict rules for "visualDiagram":
+        - Choose the "layoutType" that best fits the content ("mindmap", "comparison", "process", or "architecture").
+        - %s
+        - Every "from" and "to" in "connections" must match an existing card "id".
+        - Keep each card "heading" under 35 characters and "body" under 95 characters so text fits cleanly inside shapes.
+        - Vary card colors thoughtfully across related groups ("blue", "green", "purple", "orange", "pink").
+        """;
 
         public GeneratedNoteContent generateStructuredNote(String studyText, String userId) {
-
             String style = resolveNoteGenerationStyle(userId);
             boolean isDetailed = "detailed".equalsIgnoreCase(style);
-            log.info("Generating note for userId={} using note_generation_style={}", userId, style);
+            log.info("Generating visual note for userId={} using note_generation_style={}", userId, style);
+
             String systemPrompt = buildSystemPrompt(isDetailed);
-            int maxTokens = isDetailed ? 2048 : 450;
+            int maxTokens = isDetailed ? 2600 : 900;
 
             String userInstruction = isDetailed
                     ? """
-                  Create an IN-DEPTH, COMPREHENSIVE study guide and a 12-to-15-node multi-branch flowchart from this material.
-                  In "summary", include 4 bold uppercase sections (**CORE OVERVIEW**, **KEY MECHANISMS**, **STEP-BY-STEP BREAKDOWN**, **REAL-WORLD EXAMPLE**) with 2 to 3 multi-sentence bullets under each section:
+                  Create an IN-DEPTH visual study board and comprehensive summary from this material.
+                  For "summary" (must be a single Markdown string), include 4 bold uppercase sections (**CORE OVERVIEW**, **KEY MECHANISMS**, **STEP-BY-STEP BREAKDOWN**, **REAL-WORLD EXAMPLE**) with 2 to 3 multi-sentence bullets under each section.
+                  For "visualDiagram", create 8 to 11 richly connected cards, 6 to 10 labeled connections, and 3 stickyNotes:
 
                   """ + studyText
                     : """
-                  Create an ULTRA-BRIEF TL;DR and a 4-node linear flowchart from this material.
-                  In "summary", write ONLY 3 single-line bullets (max 12 words each, no sections, no examples):
+                  Create an ULTRA-BRIEF visual overview and executive TL;DR from this material.
+                  For "summary" (must be a single Markdown string), write ONLY 3 single-line bullets (max 12 words each, no sections, no examples).
+                  For "visualDiagram", create 3 to 4 concise cards, 2 to 3 connections, and 1 stickyNote:
 
                   """ + studyText;
 
@@ -96,23 +116,98 @@
                         .asText();
 
                 String cleanJson = sanitizeAiOutput(messageContent);
-                GeneratedNoteContent parsed = objectMapper.readValue(cleanJson, GeneratedNoteContent.class);
+                JsonNode noteJson = objectMapper.readTree(cleanJson);
 
-                if (parsed.title() == null || parsed.summary() == null || parsed.mermaidCode() == null) {
-                    throw new ContentExtractionException("AI response missed required fields");
+                String title = extractText(noteJson.path("title"));
+                String summary = extractSummary(noteJson.path("summary"));
+                JsonNode diagramNode = resolveDiagramNode(noteJson);
+
+                if (title == null || title.isBlank()
+                        || summary == null || summary.isBlank()
+                        || !diagramNode.isObject()
+                        || !diagramNode.path("cards").isArray()
+                        || diagramNode.path("cards").isEmpty()) {
+                    log.error("AI response missed required visual note fields. Raw JSON: {}", cleanJson);
+                    throw new ContentExtractionException("AI response missed required visual note fields");
                 }
 
+                String serializedDiagram = objectMapper.writeValueAsString(diagramNode);
+
                 return new GeneratedNoteContent(
-                        parsed.title().trim(),
-                        parsed.summary().trim(),
-                        sanitizeMermaid(parsed.mermaidCode())
+                        title.trim(),
+                        summary.trim(),
+                        serializedDiagram
                 );
             } catch (ContentExtractionException e) {
                 throw e;
             } catch (Exception e) {
-                throw new ContentExtractionException("Failed to generate AI notes from Groq: " + e.getMessage(), e);
+                throw new ContentExtractionException("Failed to generate AI visual notes from Groq: " + e.getMessage(), e);
             }
         }
+
+        private JsonNode resolveDiagramNode(JsonNode noteJson) {
+            JsonNode diagramNode = noteJson.path("visualDiagram");
+            if (diagramNode.isMissingNode() || diagramNode.isNull()) {
+                diagramNode = noteJson.path("visualDiagramJson");
+            }
+            if (diagramNode.isMissingNode() || diagramNode.isNull()) {
+                diagramNode = noteJson.path("diagram");
+            }
+            if ((diagramNode.isMissingNode() || diagramNode.isNull()) && noteJson.path("cards").isArray()) {
+                diagramNode = noteJson;
+            }
+            if (diagramNode.isString()) {
+                diagramNode = objectMapper.readTree(diagramNode.asString());
+            }
+            return diagramNode;
+        }
+
+        private String extractText(JsonNode node) {
+            if (node == null || node.isMissingNode() || node.isNull()) {
+                return null;
+            }
+            return node.isString() ? node.asString() : node.toString();
+        }
+
+        private String extractSummary(JsonNode summaryNode) {
+            if (summaryNode == null || summaryNode.isMissingNode() || summaryNode.isNull()) {
+                return null;
+            }
+            if (summaryNode.isString()) {
+                return summaryNode.asString();
+            }
+            if (summaryNode.isArray()) {
+                StringBuilder sb = new StringBuilder();
+                for (JsonNode item : summaryNode) {
+                    String line = extractSummary(item);
+                    if (line != null && !line.isBlank()) {
+                        if (!sb.isEmpty()) {
+                            sb.append("\n");
+                        }
+                        String trimmed = line.trim();
+                        sb.append(trimmed.startsWith("-") || trimmed.startsWith("*") ? trimmed : "- " + trimmed);
+                    }
+                }
+                return sb.toString();
+            }
+            if (summaryNode.isObject()) {
+                StringBuilder sb = new StringBuilder();
+                for (Map.Entry<String, JsonNode> entry : summaryNode.properties()) {
+                    String sectionBody = extractSummary(entry.getValue());
+                    if (sectionBody != null && !sectionBody.isBlank()) {
+                        if (!sb.isEmpty()) {
+                            sb.append("\n\n");
+                        }
+                        sb.append("**").append(entry.getKey()).append("**\n").append(sectionBody.trim());
+                    }
+                }
+                return sb.toString();
+            }
+            return summaryNode.toString();
+        }
+
+
+
         private String resolveNoteGenerationStyle(String userId) {
             if (flagsmithClient.isEmpty() || userId == null || userId.isBlank()) {
                 return "concise";
@@ -129,16 +224,18 @@
 
         private String buildSystemPrompt(boolean isDetailed) {
             if (isDetailed) {
-                return SYSTEM_PROMPT.formatted(
+                return BASE_SYSTEM_PROMPT.formatted(
                         "An exhaustive study guide organized under **CORE OVERVIEW**, **KEY MECHANISMS**, **STEP-BY-STEP BREAKDOWN**, and **REAL-WORLD EXAMPLE** with 8 to 12 detailed bullets.",
-                        "Build a rich multi-branch diagram with 12 to 15 nodes and descriptive edge labels like A[\"Topic\"] -->|\"drives\"| B[\"Result\"]."
+                        "Generate 8 to 11 cards, 6 to 10 labeled connections, and 3 stickyNotes covering sub-concepts, edge cases, and examples."
                 );
             }
-            return SYSTEM_PROMPT.formatted(
+            return BASE_SYSTEM_PROMPT.formatted(
                     "Exactly 3 short one-line bullet points (under 12 words each) with no subheadings.",
-                    "Keep the diagram strictly minimal with only 4 nodes and no sub-branches."
+                    "Generate only 3 to 4 high-level cards, 2 to 3 connections, and 1 stickyNote."
             );
         }
+
+
 
         private String sanitizeAiOutput(String content) {
             String withoutThink = content.replaceAll("(?s)<think>.*?</think>", "").trim();
