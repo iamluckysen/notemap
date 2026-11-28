@@ -158,3 +158,16 @@ All requests require the `X-User-Id` header for anonymous workspace isolation an
 | `GET` | `/api/notes/{id}` | Fetch a single note's summary, diagram source, and Excalidraw scene. |
 | `PUT` | `/api/notes/{id}` | Save edited title, Markdown summary, and Excalidraw JSON scene. |
 | `DELETE` | `/api/notes/{id}` | Permanently delete a note. |
+
+
+
+## Screenshots
+
+### Visual Board Workspace
+![NoteMap Visual Board Workspace](docs/images/visual-board.png)
+
+### Interactive Canvas & Flowchart Mode
+![NoteMap Flowchart and Canvas Editing](docs/images/flowchart-edit.png)
+
+### Flagsmith Experimentation (`note_generation_style`)
+![Flagsmith Feature Flag and Identities](docs/images/flagsmith-setup.png) 
